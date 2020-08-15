@@ -7,6 +7,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.ConstraintViolationException;
+import javax.validation.Valid;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @RequestMapping("/api/v2/beer")
@@ -24,22 +28,33 @@ public class BeerControllerV2 {
     }
 
     @PostMapping
-    public ResponseEntity createBeer(@RequestBody BeerDtoV2 beerDtoV2) {
+    public ResponseEntity<?> createBeer(@Valid @RequestBody BeerDtoV2 beerDtoV2) {
         BeerDtoV2 savedBeer = beerService.createBeer(beerDtoV2);
         HttpHeaders headers = new HttpHeaders();
         headers.add("Location", "/api/v1/beer/" + savedBeer.getId().toString());
-        return new ResponseEntity(headers, HttpStatus.CREATED);
+        return new ResponseEntity<>(headers, HttpStatus.CREATED);
     }
 
     @PutMapping("/{beerId}")
-    public ResponseEntity updateBeer(@PathVariable UUID beerId, @RequestBody BeerDtoV2 beerDtoV2) {
+    public ResponseEntity<?> updateBeer(@PathVariable UUID beerId,
+                                        @Valid @RequestBody BeerDtoV2 beerDtoV2) {
         beerService.updateBeer(beerId, beerDtoV2);
-
-        return new ResponseEntity(HttpStatus.NO_CONTENT);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
+
     @DeleteMapping("/{beerId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void deleteBeer(@PathVariable UUID beerId) {
         beerService.deleteById(beerId);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<List<String>> validationErrorHandler(ConstraintViolationException e) {
+        List<String> errors = new ArrayList<>(e.getConstraintViolations().size());
+        e.getConstraintViolations().forEach(violation -> {
+            errors.add(violation.getPropertyPath() + " : " + violation.getMessage());
+        });
+
+        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
     }
 }
